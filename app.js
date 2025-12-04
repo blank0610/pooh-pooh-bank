@@ -56,14 +56,13 @@ const profileMemberSince = document.getElementById("profileMemberSince");
 const btnUpdateProfile = document.getElementById("btnUpdateProfile");
 const profileStatus = document.getElementById("profileStatus");
 
-/* Money accounts */
+/* Money accounts management */
 const accountSelect = document.getElementById("accountSelect");
 const accountNameEditInput = document.getElementById("accountNameEditInput");
 const accountTypeEditSelect = document.getElementById("accountTypeEditSelect");
 const accountNoteEditInput = document.getElementById("accountNoteEditInput");
 const btnUpdateAccountDetails = document.getElementById("btnUpdateAccountDetails");
 const accountEditStatus = document.getElementById("accountEditStatus");
-const currentAccountLabel = document.getElementById("currentAccountLabel");
 
 const newAccountNameInput = document.getElementById("newAccountNameInput");
 const newAccountTypeSelect = document.getElementById("newAccountTypeSelect");
@@ -71,13 +70,15 @@ const newAccountNoteInput = document.getElementById("newAccountNoteInput");
 const btnCreateAccount = document.getElementById("btnCreateAccount");
 const accountCreateStatus = document.getElementById("accountCreateStatus");
 
-/* Settings per money account */
+/* Settings per account (dropdown) */
+const settingsAccountSelect = document.getElementById("settingsAccountSelect");
 const incomeInput = document.getElementById("incomeInput");
 const savingTargetInput = document.getElementById("savingTargetInput");
 const btnSaveSettings = document.getElementById("btnSaveSettings");
 const settingsStatus = document.getElementById("settingsStatus");
 
-/* Transactions */
+/* Transactions input (dropdown) */
+const txAccountSelect = document.getElementById("txAccountSelect");
 const txDateInput = document.getElementById("txDateInput");
 const txAmountInput = document.getElementById("txAmountInput");
 const txMerchantInput = document.getElementById("txMerchantInput");
@@ -93,6 +94,7 @@ const sumExpectedSavingPct = document.getElementById("sumExpectedSavingPct");
 const sumActualSaving = document.getElementById("sumActualSaving");
 const sumActualSavingPct = document.getElementById("sumActualSavingPct");
 const savingStatus = document.getElementById("savingStatus");
+const accountsSummaryTableBody = document.getElementById("accountsSummaryTableBody");
 
 /* Tables */
 const categoryTableBody = document.getElementById("categoryTableBody");
@@ -112,16 +114,13 @@ let userProfile = {
 
 // Money accounts list
 let accounts = []; // { id, name, type, note, income, savingTargetPercent, createdAt }
-let currentAccountId = null;
 
-// Per-account settings & transactions
-let accountSettings = {
-  income: 0,
-  savingTargetPercent: 0
-};
-let transactions = []; // for current account only
+let selectedSettingsAccountId = "";
+let selectedTxAccountId = "";
 
-let txUnsubscribe = null;
+// Transactions per account: { accountId: [tx,...] }
+let transactionsByAccount = {};
+let txUnsubscribes = {};
 let accountsUnsubscribe = null;
 
 /******************** UTIL HELPERS ********************/
@@ -146,6 +145,21 @@ function formatDateHuman(dt) {
   } catch {
     return "–";
   }
+}
+
+function getAllTransactionsFlat() {
+  const result = [];
+  for (const acc of accounts) {
+    const list = transactionsByAccount[acc.id] || [];
+    for (const tx of list) {
+      result.push({
+        ...tx,
+        accountId: acc.id,
+        accountName: acc.name || "(no name)"
+      });
+    }
+  }
+  return result;
 }
 
 // Simple auto-categorisation rules based on merchant text
@@ -221,8 +235,14 @@ onAuthStateChanged(auth, async (user) => {
 
   // Clean up listeners when logged out
   if (!user) {
-    if (txUnsubscribe) txUnsubscribe();
     if (accountsUnsubscribe) accountsUnsubscribe();
+    accountsUnsubscribe = null;
+
+    for (const id in txUnsubscribes) {
+      txUnsubscribes[id]();
+    }
+    txUnsubscribes = {};
+    transactionsByAccount = {};
   }
 
   if (user) {
@@ -240,11 +260,11 @@ onAuthStateChanged(auth, async (user) => {
     authCard.classList.remove("hidden");
 
     accounts = [];
-    currentAccountId = null;
-    transactions = [];
-    accountSettings = { income: 0, savingTargetPercent: 0 };
+    selectedSettingsAccountId = "";
+    selectedTxAccountId = "";
     userProfile = { displayName: "", createdAt: null };
     renderAll();
+    renderAccountDropdowns();
   }
 });
 
@@ -310,21 +330,48 @@ function attachAccountsListener() {
   const q = query(accColRef, orderBy("createdAt", "asc"));
 
   accountsUnsubscribe = onSnapshot(q, (snapshot) => {
-    accounts = snapshot.docs.map((docSnap) => ({
+    const newAccounts = snapshot.docs.map((docSnap) => ({
       id: docSnap.id,
       ...docSnap.data()
     }));
-    renderAccountSelect();
+
+    // Handle removed accounts: stop their tx listeners
+    const newIds = new Set(newAccounts.map((a) => a.id));
+    for (const id in txUnsubscribes) {
+      if (!newIds.has(id)) {
+        txUnsubscribes[id]();
+        delete txUnsubscribes[id];
+        delete transactionsByAccount[id];
+      }
+    }
+
+    accounts = newAccounts;
+
+    // Attach tx listener for any new accounts
+    for (const acc of accounts) {
+      if (!txUnsubscribes[acc.id]) {
+        attachTransactionsListenerForAccount(acc.id);
+      }
+    }
+
+    // Update selects
+    renderAccountDropdowns();
+
+    // Update edit account section fields
+    updateAccountEditSelection();
+
+    // Re-render summary / transactions with new account data
+    renderAll();
   });
 }
 
-function renderAccountSelect() {
+function renderAccountDropdowns() {
+  // Money account edit dropdown
   accountSelect.innerHTML = "";
-
-  const defaultOpt = document.createElement("option");
-  defaultOpt.value = "";
-  defaultOpt.textContent = accounts.length ? "Select an account" : "No accounts yet";
-  accountSelect.appendChild(defaultOpt);
+  const editDefaultOpt = document.createElement("option");
+  editDefaultOpt.value = "";
+  editDefaultOpt.textContent = accounts.length ? "Select account" : "No accounts yet";
+  accountSelect.appendChild(editDefaultOpt);
 
   for (const acc of accounts) {
     const opt = document.createElement("option");
@@ -333,79 +380,63 @@ function renderAccountSelect() {
     accountSelect.appendChild(opt);
   }
 
-  // Keep current account if possible, else auto-select first
-  if (currentAccountId && accounts.some((a) => a.id === currentAccountId)) {
-    accountSelect.value = currentAccountId;
+  // Settings dropdown
+  settingsAccountSelect.innerHTML = "";
+  const setDef = document.createElement("option");
+  setDef.value = "";
+  setDef.textContent = accounts.length ? "Select account" : "No accounts yet";
+  settingsAccountSelect.appendChild(setDef);
+
+  for (const acc of accounts) {
+    const opt = document.createElement("option");
+    opt.value = acc.id;
+    opt.textContent = acc.name || "(no name)";
+    settingsAccountSelect.appendChild(opt);
+  }
+
+  if (selectedSettingsAccountId && accounts.some((a) => a.id === selectedSettingsAccountId)) {
+    settingsAccountSelect.value = selectedSettingsAccountId;
   } else {
-    currentAccountId = accounts[0]?.id || null;
-    accountSelect.value = currentAccountId || "";
+    selectedSettingsAccountId = "";
   }
 
-  onAccountChanged();
-}
+  // Transaction dropdown
+  txAccountSelect.innerHTML = "";
+  const txDef = document.createElement("option");
+  txDef.value = "";
+  txDef.textContent = accounts.length ? "Select account" : "No accounts yet";
+  txAccountSelect.appendChild(txDef);
 
-accountSelect.addEventListener("change", () => {
-  currentAccountId = accountSelect.value || null;
-  onAccountChanged();
-});
-
-function onAccountChanged() {
-  if (!currentAccountId) {
-    accountSettings = { income: 0, savingTargetPercent: 0 };
-    transactions = [];
-    updateAccountEditFields(null);
-    updateCurrentAccountLabel(null);
-    detachTransactionsListener();
-    renderAll();
-    return;
+  for (const acc of accounts) {
+    const opt = document.createElement("option");
+    opt.value = acc.id;
+    opt.textContent = acc.name || "(no name)";
+    txAccountSelect.appendChild(opt);
   }
 
-  const acc = accounts.find((a) => a.id === currentAccountId) || null;
-  updateAccountEditFields(acc);
-  updateCurrentAccountLabel(acc);
-  loadAccountSettingsFromAcc(acc);
-  attachTransactionsListenerForCurrentAccount();
-  renderAll();
-}
-
-function updateCurrentAccountLabel(acc) {
-  if (!acc) {
-    currentAccountLabel.innerHTML = 'Current account: <strong>None selected</strong>';
+  if (selectedTxAccountId && accounts.some((a) => a.id === selectedTxAccountId)) {
+    txAccountSelect.value = selectedTxAccountId;
   } else {
-    const typeText = acc.type ? ` – ${acc.type}` : "";
-    currentAccountLabel.innerHTML = `Current account: <strong>${acc.name || "(no name)"}${typeText}</strong>`;
+    selectedTxAccountId = "";
   }
 }
 
-function updateAccountEditFields(acc) {
+// Edit account selection
+accountSelect.addEventListener("change", updateAccountEditSelection);
+
+function updateAccountEditSelection() {
+  const accId = accountSelect.value || "";
+  const acc = accounts.find((a) => a.id === accId);
   if (!acc) {
     accountNameEditInput.value = "";
     accountTypeEditSelect.value = "";
     accountNoteEditInput.value = "";
     return;
   }
+
   accountNameEditInput.value = acc.name || "";
   accountTypeEditSelect.value = acc.type || "";
   accountNoteEditInput.value = acc.note || "";
-}
-
-function loadAccountSettingsFromAcc(acc) {
-  if (!acc) {
-    accountSettings.income = 0;
-    accountSettings.savingTargetPercent = 0;
-  } else {
-    accountSettings.income = acc.income || 0;
-    accountSettings.savingTargetPercent = acc.savingTargetPercent || 0;
-  }
-
-  incomeInput.value =
-    accountSettings.income || accountSettings.income === 0
-      ? accountSettings.income
-      : "";
-  savingTargetInput.value =
-    accountSettings.savingTargetPercent || accountSettings.savingTargetPercent === 0
-      ? accountSettings.savingTargetPercent
-      : "";
 }
 
 btnCreateAccount.addEventListener("click", async () => {
@@ -426,7 +457,7 @@ btnCreateAccount.addEventListener("click", async () => {
 
   try {
     const accColRef = collection(db, "users", currentUser.uid, "accounts");
-    const docRef = await addDoc(accColRef, {
+    await addDoc(accColRef, {
       name,
       type,
       note,
@@ -438,10 +469,6 @@ btnCreateAccount.addEventListener("click", async () => {
     accountCreateStatus.textContent = "Account created.";
     newAccountNameInput.value = "";
     newAccountNoteInput.value = "";
-
-    // Select the new account
-    currentAccountId = docRef.id;
-    // The snapshot listener will fire and call renderAccountSelect
   } catch (err) {
     accountCreateStatus.textContent = "Error creating account: " + err.message;
   }
@@ -453,7 +480,9 @@ btnUpdateAccountDetails.addEventListener("click", async () => {
     accountEditStatus.textContent = "Not logged in.";
     return;
   }
-  if (!currentAccountId) {
+
+  const accId = accountSelect.value || "";
+  if (!accId) {
     accountEditStatus.textContent = "Select an account first.";
     return;
   }
@@ -463,7 +492,7 @@ btnUpdateAccountDetails.addEventListener("click", async () => {
   const newNote = accountNoteEditInput.value.trim();
 
   try {
-    const accDocRef = doc(db, "users", currentUser.uid, "accounts", currentAccountId);
+    const accDocRef = doc(db, "users", currentUser.uid, "accounts", accId);
     await setDoc(
       accDocRef,
       {
@@ -480,13 +509,38 @@ btnUpdateAccountDetails.addEventListener("click", async () => {
 });
 
 /******************** ACCOUNT SETTINGS (income & saving target) ********************/
+settingsAccountSelect.addEventListener("change", () => {
+  selectedSettingsAccountId = settingsAccountSelect.value || "";
+  fillSettingsInputsFromAccount();
+});
+
+function fillSettingsInputsFromAccount() {
+  if (!selectedSettingsAccountId) {
+    incomeInput.value = "";
+    savingTargetInput.value = "";
+    return;
+  }
+  const acc = accounts.find((a) => a.id === selectedSettingsAccountId);
+  if (!acc) {
+    incomeInput.value = "";
+    savingTargetInput.value = "";
+    return;
+  }
+  incomeInput.value =
+    acc.income || acc.income === 0 ? acc.income : "";
+  savingTargetInput.value =
+    acc.savingTargetPercent || acc.savingTargetPercent === 0
+      ? acc.savingTargetPercent
+      : "";
+}
+
 btnSaveSettings.addEventListener("click", async () => {
   settingsStatus.textContent = "";
   if (!currentUser) {
     settingsStatus.textContent = "Not logged in.";
     return;
   }
-  if (!currentAccountId) {
+  if (!selectedSettingsAccountId) {
     settingsStatus.textContent = "Select an account first.";
     return;
   }
@@ -494,11 +548,8 @@ btnSaveSettings.addEventListener("click", async () => {
   const income = Number(incomeInput.value) || 0;
   const targetPct = Number(savingTargetInput.value) || 0;
 
-  accountSettings.income = income;
-  accountSettings.savingTargetPercent = targetPct;
-
   try {
-    const accDocRef = doc(db, "users", currentUser.uid, "accounts", currentAccountId);
+    const accDocRef = doc(db, "users", currentUser.uid, "accounts", selectedSettingsAccountId);
     await setDoc(
       accDocRef,
       {
@@ -508,40 +559,31 @@ btnSaveSettings.addEventListener("click", async () => {
       { merge: true }
     );
     settingsStatus.textContent = "Settings saved.";
-    renderSummary();
   } catch (err) {
     settingsStatus.textContent = "Error saving: " + err.message;
   }
 });
 
-/******************** TRANSACTIONS (per money account) ********************/
-function detachTransactionsListener() {
-  if (txUnsubscribe) {
-    txUnsubscribe();
-    txUnsubscribe = null;
-  }
-}
+/******************** TRANSACTIONS (per account via dropdown) ********************/
+txAccountSelect.addEventListener("change", () => {
+  selectedTxAccountId = txAccountSelect.value || "";
+});
 
-function attachTransactionsListenerForCurrentAccount() {
-  detachTransactionsListener();
-  if (!currentUser || !currentAccountId) {
-    transactions = [];
-    renderAll();
-    return;
-  }
+function attachTransactionsListenerForAccount(accountId) {
+  if (!currentUser || !accountId) return;
 
   const txColRef = collection(
     db,
     "users",
     currentUser.uid,
     "accounts",
-    currentAccountId,
+    accountId,
     "transactions"
   );
   const q = query(txColRef, orderBy("date", "desc"));
 
-  txUnsubscribe = onSnapshot(q, (snapshot) => {
-    transactions = snapshot.docs.map((docSnap) => ({
+  txUnsubscribes[accountId] = onSnapshot(q, (snapshot) => {
+    transactionsByAccount[accountId] = snapshot.docs.map((docSnap) => ({
       id: docSnap.id,
       ...docSnap.data()
     }));
@@ -555,7 +597,7 @@ btnAddTransaction.addEventListener("click", async () => {
     txStatus.textContent = "Not logged in.";
     return;
   }
-  if (!currentAccountId) {
+  if (!selectedTxAccountId) {
     txStatus.textContent = "Select an account first.";
     return;
   }
@@ -584,7 +626,7 @@ btnAddTransaction.addEventListener("click", async () => {
       "users",
       currentUser.uid,
       "accounts",
-      currentAccountId,
+      selectedTxAccountId,
       "transactions"
     );
     await addDoc(txColRef, {
@@ -603,50 +645,66 @@ btnAddTransaction.addEventListener("click", async () => {
   }
 });
 
-async function deleteTransaction(id) {
-  if (!currentUser || !currentAccountId || !id) return;
+async function deleteTransaction(accountId, txId) {
+  if (!currentUser || !accountId || !txId) return;
   const txDocRef = doc(
     db,
     "users",
     currentUser.uid,
     "accounts",
-    currentAccountId,
+    accountId,
     "transactions",
-    id
+    txId
   );
   await deleteDoc(txDocRef);
 }
 
 /******************** RENDER FUNCTIONS ********************/
 function renderAll() {
+  fillSettingsInputsFromAccount(); // keep settings inputs synced
   renderSummary();
+  renderAccountsSummary();
   renderCategories();
   renderTransactionsTable();
 }
 
 function renderSummary() {
-  const income = Number(accountSettings.income) || 0;
-  const targetPct = Number(accountSettings.savingTargetPercent) || 0;
+  const allTx = getAllTransactionsFlat();
 
-  const totalSpent = transactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  const expectedSaving = (income * targetPct) / 100;
-  const actualSaving = income - totalSpent;
-  const actualSavingPct = income > 0 ? (actualSaving / income) * 100 : 0;
+  const totalIncome = accounts.reduce(
+    (sum, acc) => sum + (Number(acc.income) || 0),
+    0
+  );
 
-  sumIncome.textContent = formatCurrency(income);
+  const totalSpent = allTx.reduce(
+    (sum, t) => sum + (Number(t.amount) || 0),
+    0
+  );
+
+  const expectedSavingTotal = accounts.reduce((sum, acc) => {
+    const income = Number(acc.income) || 0;
+    const pct = Number(acc.savingTargetPercent) || 0;
+    return sum + income * (pct / 100);
+  }, 0);
+
+  const actualSaving = totalIncome - totalSpent;
+  const expectedSavingPct = totalIncome > 0 ? (expectedSavingTotal / totalIncome) * 100 : 0;
+  const actualSavingPct = totalIncome > 0 ? (actualSaving / totalIncome) * 100 : 0;
+
+  sumIncome.textContent = formatCurrency(totalIncome);
   sumSpent.textContent = formatCurrency(totalSpent);
-  sumExpectedSaving.textContent = formatCurrency(expectedSaving);
-  sumExpectedSavingPct.textContent = percent(targetPct);
+  sumExpectedSaving.textContent = formatCurrency(expectedSavingTotal);
+  sumExpectedSavingPct.textContent = percent(expectedSavingPct);
   sumActualSaving.textContent = formatCurrency(actualSaving);
   sumActualSavingPct.textContent = percent(actualSavingPct);
 
-  if (!currentAccountId) {
-    savingStatus.textContent = "Select a money account.";
+  if (accounts.length === 0) {
+    savingStatus.textContent = "Create a money account first.";
     savingStatus.classList.remove("status-ok", "status-bad");
-  } else if (income <= 0) {
-    savingStatus.textContent = "Set income for this account.";
+  } else if (totalIncome <= 0) {
+    savingStatus.textContent = "Set income for your accounts.";
     savingStatus.classList.remove("status-ok", "status-bad");
-  } else if (actualSaving >= expectedSaving) {
+  } else if (actualSaving >= expectedSavingTotal) {
     savingStatus.textContent = "On track ✅";
     savingStatus.classList.add("status-ok");
     savingStatus.classList.remove("status-bad");
@@ -657,12 +715,57 @@ function renderSummary() {
   }
 }
 
+function renderAccountsSummary() {
+  accountsSummaryTableBody.innerHTML = "";
+  if (accounts.length === 0) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="7" class="small-info">No accounts yet.</td>`;
+    accountsSummaryTableBody.appendChild(tr);
+    return;
+  }
+
+  for (const acc of accounts) {
+    const txs = transactionsByAccount[acc.id] || [];
+    const spent = txs.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const income = Number(acc.income) || 0;
+    const pct = Number(acc.savingTargetPercent) || 0;
+    const expectedSaving = income * (pct / 100);
+    const actualSaving = income - spent;
+
+    let statusText = "Set income / target";
+    let statusClass = "";
+    if (income > 0) {
+      if (actualSaving >= expectedSaving) {
+        statusText = "On track ✅";
+        statusClass = "status-ok";
+      } else {
+        statusText = "Below target ❌";
+        statusClass = "status-bad";
+      }
+    }
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${acc.name || "(no name)"}</td>
+      <td>${acc.type || ""}</td>
+      <td class="right">${formatCurrency(income)}</td>
+      <td class="right">${formatCurrency(spent)}</td>
+      <td class="right">${formatCurrency(expectedSaving)}</td>
+      <td class="right">${formatCurrency(actualSaving)}</td>
+      <td class="${statusClass}">${statusText}</td>
+    `;
+    accountsSummaryTableBody.appendChild(tr);
+  }
+}
+
 function renderCategories() {
   categoryTableBody.innerHTML = "";
+
+  const allTx = getAllTransactionsFlat();
   const totals = {};
   let totalSpent = 0;
 
-  for (const t of transactions) {
+  for (const t of allTx) {
     const amount = Number(t.amount) || 0;
     const cat = t.category || "Uncategorised";
     totalSpent += amount;
@@ -693,8 +796,9 @@ function renderCategories() {
 function renderTransactionsTable() {
   txTableBody.innerHTML = "";
 
-  const rows = [...transactions];
+  const rows = getAllTransactionsFlat();
   const { key, direction } = txSortState;
+
   rows.sort((a, b) => {
     let av = a[key];
     let bv = b[key];
@@ -703,8 +807,8 @@ function renderTransactionsTable() {
       av = Number(av) || 0;
       bv = Number(bv) || 0;
     } else if (key === "date") {
-      // compare YYYY-MM-DD strings
-    } else if (key === "category") {
+      // dates are YYYY-MM-DD strings, lexicographic compare works
+    } else if (key === "category" || key === "accountName") {
       av = (av || "").toLowerCase();
       bv = (bv || "").toLowerCase();
     }
@@ -718,11 +822,12 @@ function renderTransactionsTable() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${t.date || ""}</td>
+      <td>${t.accountName || ""}</td>
       <td>${t.merchant || ""}</td>
       <td class="right">${formatCurrency(t.amount)}</td>
       <td><span class="tag">${t.category || "Uncategorised"}</span></td>
       <td>
-        <button class="danger" data-id="${t.id}">Delete</button>
+        <button class="danger" data-account-id="${t.accountId}" data-tx-id="${t.id}">Delete</button>
       </td>
     `;
     txTableBody.appendChild(tr);
@@ -730,15 +835,16 @@ function renderTransactionsTable() {
 
   if (rows.length === 0) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="5" class="small-info">No transactions yet.</td>`;
+    tr.innerHTML = `<td colspan="6" class="small-info">No transactions yet.</td>`;
     txTableBody.appendChild(tr);
   }
 
   txTableBody.querySelectorAll("button.danger").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-id");
+      const accountId = btn.getAttribute("data-account-id");
+      const txId = btn.getAttribute("data-tx-id");
       if (confirm("Delete this transaction?")) {
-        deleteTransaction(id);
+        deleteTransaction(accountId, txId);
       }
     });
   });
