@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Money Tracker with Accounts (Firebase)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: #f5f5f5;
+      color: #222;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      max-width: 1100px;
+      width: 100%;
+      padding: 1.5rem;
+    }
+
+    h1, h2, h3 {
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .col-half {
+      flex: 1 1 260px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 0.15rem;
+      font-weight: 600;
+    }
+
+    input, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.95rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-bottom: 0.5rem;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+    }
+
+    button {
+      cursor: pointer;
+      padding: 0.45rem 0.8rem;
+      border-radius: 6px;
+      border: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background-color: #007bff;
+      color: white;
+    }
+
+    button.secondary {
+      background-color: #6c757d;
+    }
+
+    button.danger {
+      background-color: #dc3545;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.25rem;
+    }
+
+    .small-info {
+      font-size: 0.8rem;
+      color: #666;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+
+    .summary-item {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .summary-label {
+      font-size: 0.8rem;
+      color: #555;
+    }
+
+    .summary-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .summary-badge {
+      font-size: 0.8rem;
+      margin-top: 0.2rem;
+      display: inline-block;
+      padding: 0.1rem 0.4rem;
+      border-radius: 999px;
+      background-color: #e9ecef;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    thead {
+      background-color: #f1f3f5;
+    }
+
+    th, td {
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    th.sortable span {
+      margin-left: 0.25rem;
+      font-size: 0.7rem;
+      color: #666;
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: #fafafa;
+    }
+
+    .right {
+      text-align: right;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 0.1rem 0.4rem;
+      border-radius: 999px;
+      background-color: #e9ecef;
+      font-size: 0.8rem;
+    }
+
+    .status-ok {
+      color: #198754;
+      font-weight: 600;
+    }
+
+    .status-bad {
+      color: #dc3545;
+      font-weight: 600;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .auth-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: flex-end;
+    }
+
+    @media (max-width: 600px) {
+      th, td {
+        font-size: 0.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- AUTH CARD -->
+    <div class="card" id="authCard">
+      <h1>Money Tracker</h1>
+      <p class="small-info">
+        Create an account or log in with email + password. Your data is stored per account in Firebase.
+      </p>
+      <div class="auth-row">
+        <div>
+          <label for="authEmail">Email</label>
+          <input type="email" id="authEmail" placeholder="you@example.com" />
+        </div>
+        <div>
+          <label for="authPassword">Password</label>
+          <input type="password" id="authPassword" placeholder="At least 6 characters" />
+        </div>
+        <div>
+          <label for="authName">Name (for new account)</label>
+          <input type="text" id="authName" placeholder="e.g. Alex" />
+        </div>
+        <div class="btn-row">
+          <button id="btnSignUp">Sign up</button>
+          <button id="btnSignIn" class="secondary">Sign in</button>
+        </div>
+      </div>
+      <p id="authStatus" class="small-info"></p>
+    </div>
+
+    <!-- APP UI (HIDDEN UNTIL LOGGED IN) -->
+    <div id="appRoot" class="hidden">
+      <!-- HEADER / USER -->
+      <div class="card">
+        <div class="row" style="align-items:center; justify-content: space-between;">
+          <div>
+            <h2>Dashboard</h2>
+            <div class="small-info">
+              Logged in as <span id="userEmailLabel"></span>
+            </div>
+          </div>
+          <div>
+            <button id="btnSignOut" class="secondary">Sign out</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCOUNT CARD -->
+      <div class="card">
+        <h3>Account</h3>
+        <div class="row">
+          <div class="col-half">
+            <label>Email</label>
+            <div id="accountEmailLabel" class="small-info"></div>
+
+            <label for="accountNameInput">Display name</label>
+            <input type="text" id="accountNameInput" placeholder="Your name" />
+
+            <button id="btnUpdateAccount">Update account</button>
+            <p id="accountStatus" class="small-info"></p>
+          </div>
+          <div class="col-half">
+            <label>Member since</label>
+            <div id="accountMemberSince" class="small-info">–</div>
+            <p class="small-info" style="margin-top:0.5rem;">
+              Your money data (income, saving target, transactions) is stored
+              under this account only.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS: INCOME + EXPECTED SAVINGS -->
+      <div class="card">
+        <h3>Income & Saving Target</h3>
+        <div class="row">
+          <div class="col-half">
+            <label for="incomeInput">Original Monthly Income (£)</label>
+            <input type="number" id="incomeInput" step="0.01" min="0" placeholder="e.g. 2500" />
+
+            <label for="savingTargetInput">Expected Savings (%)</label>
+            <input type="number" id="savingTargetInput" step="0.1" min="0" max="100" placeholder="e.g. 20" />
+
+            <button id="btnSaveSettings">Save Settings</button>
+            <span id="settingsStatus" class="small-info"></span>
+          </div>
+          <div class="col-half">
+            <p class="small-info">
+              These values are stored in Firestore and used to calculate:<br />
+              • How much you <strong>should</strong> save each month<br />
+              • How much you <strong>actually</strong> saved based on your spending
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADD TRANSACTION -->
+      <div class="card">
+        <h3>Add Transaction</h3>
+        <div class="row">
+          <div class="col-half">
+            <label for="txDateInput">Date</label>
+            <input type="date" id="txDateInput" />
+
+            <label for="txAmountInput">Amount (£)</label>
+            <input type="number" id="txAmountInput" step="0.01" placeholder="e.g. 42.50" />
+
+            <label for="txMerchantInput">Merchant / Description</label>
+            <input type="text" id="txMerchantInput" placeholder="e.g. Asda, Netflix, Rent" />
+          </div>
+          <div class="col-half">
+            <label for="txCategoryInput">
+              Category (optional – will auto-guess if blank)
+            </label>
+            <input type="text" id="txCategoryInput" placeholder="e.g. Groceries, Rent, Bills" />
+
+            <button id="btnAddTransaction" style="margin-top:0.5rem;">Add Transaction</button>
+            <p class="small-info">
+              Auto-categorisation examples:<br />
+              • Asda, Morrisons, Tesco, Sainsbury → <strong>Groceries</strong><br />
+              • Netflix, Spotify → <strong>Entertainment</strong><br />
+              • TfL, Bus, Train → <strong>Transport</strong><br />
+              (You can edit category text before adding.)
+            </p>
+          </div>
+        </div>
+        <p id="txStatus" class="small-info"></p>
+      </div>
+
+      <!-- SUMMARY -->
+      <div class="card">
+        <h3>Summary</h3>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="summary-label">Monthly Income</div>
+            <div class="summary-value" id="sumIncome">£0.00</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Total Spent</div>
+            <div class="summary-value" id="sumSpent">£0.00</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Expected Savings</div>
+            <div class="summary-value" id="sumExpectedSaving">£0.00</div>
+            <div class="summary-badge" id="sumExpectedSavingPct">0%</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Actual Savings</div>
+            <div class="summary-value" id="sumActualSaving">£0.00</div>
+            <div class="summary-badge" id="sumActualSavingPct">0%</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Status</div>
+            <div id="savingStatus" class="summary-value status-ok">–</div>
+          </div>
+        </div>
+
+        <h4 style="margin-top:1rem;">Spending by Category</h4>
+        <table id="categoryTable">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th class="right">Amount (£)</th>
+              <th class="right">% of Total Spent</th>
+            </tr>
+          </thead>
+          <tbody id="categoryTableBody">
+            <!-- Filled by JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- TRANSACTIONS TABLE -->
+      <div class="card">
+        <h3>Transactions</h3>
+        <p class="small-info">
+          Click the headers to sort like Excel. Data is live from Firestore.
+        </p>
+        <table id="txTable">
+          <thead>
+            <tr>
+              <th class="sortable" data-sort-key="date">Date <span>⇅</span></th>
+              <th>Merchant</th>
+              <th class="sortable right" data-sort-key="amount">Amount (£) <span>⇅</span></th>
+              <th class="sortable" data-sort-key="category">Category <span>⇅</span></th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="txTableBody">
+            <!-- Filled by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIREBASE + APP LOGIC -->
+  <script type="module">
+    /******************** FIREBASE SETUP ********************/
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      getDoc,
+      collection,
+      addDoc,
+      onSnapshot,
+      query,
+      orderBy,
+      deleteDoc,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // TODO: Put YOUR Firebase config here
+    const firebaseConfig = {
+      apiKey: "AIzaSyBFshNVsXI2kvP1ETjDmubYDR1l0Sed-2c",
+      authDomain: "poohpooh-bank.firebaseapp.com",
+      projectId: "poohpooh-bank",
+      storageBucket: "poohpooh-bank.firebasestorage.app",
+      messagingSenderId: "630472440652",
+      appId: "1:630472440652:web:efb873cab5933a8e336de9",
+      measurementId: "G-XSE1J37NLG"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    /******************** DOM ELEMENTS ********************/
+    const authCard = document.getElementById("authCard");
+    const appRoot = document.getElementById("appRoot");
+
+    const authEmail = document.getElementById("authEmail");
+    const authPassword = document.getElementById("authPassword");
+    const authName = document.getElementById("authName");
+    const btnSignUp = document.getElementById("btnSignUp");
+    const btnSignIn = document.getElementById("btnSignIn");
+    const btnSignOut = document.getElementById("btnSignOut");
+    const authStatus = document.getElementById("authStatus");
+    const userEmailLabel = document.getElementById("userEmailLabel");
+
+    const incomeInput = document.getElementById("incomeInput");
+    const savingTargetInput = document.getElementById("savingTargetInput");
+    const btnSaveSettings = document.getElementById("btnSaveSettings");
+    const settingsStatus = document.getElementById("settingsStatus");
+
+    const txDateInput = document.getElementById("txDateInput");
+    const txAmountInput = document.getElementById("txAmountInput");
+    const txMerchantInput = document.getElementById("txMerchantInput");
+    const txCategoryInput = document.getElementById("txCategoryInput");
+    const btnAddTransaction = document.getElementById("btnAddTransaction");
+    const txStatus = document.getElementById("txStatus");
+
+    const sumIncome = document.getElementById("sumIncome");
+    const sumSpent = document.getElementById("sumSpent");
+    const sumExpectedSaving = document.getElementById("sumExpectedSaving");
+    const sumExpectedSavingPct = document.getElementById("sumExpectedSavingPct");
+    const sumActualSaving = document.getElementById("sumActualSaving");
+    const sumActualSavingPct = document.getElementById("sumActualSavingPct");
+    const savingStatus = document.getElementById("savingStatus");
+
+    const categoryTableBody = document.getElementById("categoryTableBody");
+    const txTableBody = document.getElementById("txTableBody");
+    const txTable = document.getElementById("txTable");
+
+    // Account elements
+    const accountEmailLabel = document.getElementById("accountEmailLabel");
+    const accountNameInput = document.getElementById("accountNameInput");
+    const accountMemberSince = document.getElementById("accountMemberSince");
+    const btnUpdateAccount = document.getElementById("btnUpdateAccount");
+    const accountStatus = document.getElementById("accountStatus");
+
+    let txSortState = { key: "date", direction: "desc" };
+
+    /******************** GLOBAL STATE ********************/
+    let currentUser = null;
+    let userSettings = {
+      income: 0,
+      savingTargetPercent: 0
+    };
+    let userProfile = {
+      displayName: "",
+      createdAt: null
+    };
+    let transactions = []; // local cache of Firestore data
+
+    /******************** UTIL HELPERS ********************/
+    function formatCurrency(value) {
+      const num = Number(value) || 0;
+      return "£" + num.toFixed(2);
+    }
+
+    function percent(value) {
+      const num = Number(value) || 0;
+      return num.toFixed(1) + "%";
+    }
+
+    function formatDateHuman(dt) {
+      if (!dt) return "–";
+      try {
+        return dt.toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric"
+        });
+      } catch {
+        return "–";
+      }
+    }
+
+    // Simple auto-categorisation rules based on merchant text
+    function guessCategory(merchantRaw) {
+      const merchant = (merchantRaw || "").toLowerCase();
+
+      const rules = [
+        { match: ["asda", "tesco", "morrisons", "aldi", "lidl", "sainsbury"], category: "Groceries" },
+        { match: ["netflix", "spotify", "disney", "cinema"], category: "Entertainment" },
+        { match: ["tfl", "bus", "train", "uber", "bolt"], category: "Transport" },
+        { match: ["rent"], category: "Rent" },
+        { match: ["vodafone", "o2", "ee", "three"], category: "Phone" },
+        { match: ["octopus", "british gas", "edf"], category: "Energy" },
+        { match: ["amazon"], category: "Shopping" }
+      ];
+
+      for (const rule of rules) {
+        for (const key of rule.match) {
+          if (merchant.includes(key)) return rule.category;
+        }
+      }
+      return "Other";
+    }
+
+    /******************** AUTH HANDLERS ********************/
+    btnSignUp.addEventListener("click", async () => {
+      authStatus.textContent = "";
+      try {
+        const email = authEmail.value.trim();
+        const pass = authPassword.value;
+        const name = authName.value.trim();
+        if (!email || !pass) {
+          authStatus.textContent = "Please enter email and password.";
+          return;
+        }
+        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+
+        // Create user doc with account info
+        const userDocRef = doc(db, "users", cred.user.uid);
+        await setDoc(userDocRef, {
+          income: 0,
+          savingTargetPercent: 0,
+          displayName: name || "",
+          createdAt: serverTimestamp()
+        });
+
+        authStatus.textContent = "Account created and signed in.";
+      } catch (err) {
+        authStatus.textContent = "Sign up error: " + err.message;
+      }
+    });
+
+    btnSignIn.addEventListener("click", async () => {
+      authStatus.textContent = "";
+      try {
+        const email = authEmail.value.trim();
+        const pass = authPassword.value;
+        if (!email || !pass) {
+          authStatus.textContent = "Please enter email and password.";
+          return;
+        }
+        await signInWithEmailAndPassword(auth, email, pass);
+        authStatus.textContent = "Signed in.";
+      } catch (err) {
+        authStatus.textContent = "Sign in error: " + err.message;
+      }
+    });
+
+    btnSignOut.addEventListener("click", async () => {
+      await signOut(auth);
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+      if (user) {
+        authCard.classList.add("hidden");
+        appRoot.classList.remove("hidden");
+
+        accountEmailLabel.textContent = user.email || user.uid;
+
+        await loadUserSettingsAndProfile();
+        attachTransactionsListener();
+      } else {
+        appRoot.classList.add("hidden");
+        authCard.classList.remove("hidden");
+        transactions = [];
+        userSettings = { income: 0, savingTargetPercent: 0 };
+        userProfile = { displayName: "", createdAt: null };
+        renderAll();
+      }
+    });
+
+    /******************** SETTINGS & PROFILE ********************/
+    async function loadUserSettingsAndProfile() {
+      if (!currentUser) return;
+      const userDocRef = doc(db, "users", currentUser.uid);
+      const snap = await getDoc(userDocRef);
+
+      if (snap.exists()) {
+        const data = snap.data();
+        userSettings.income = data.income || 0;
+        userSettings.savingTargetPercent = data.savingTargetPercent || 0;
+        userProfile.displayName = data.displayName || "";
+        userProfile.createdAt = data.createdAt ? data.createdAt.toDate() : null;
+      } else {
+        userSettings.income = 0;
+        userSettings.savingTargetPercent = 0;
+        userProfile.displayName = "";
+        userProfile.createdAt = null;
+      }
+
+      // Fill inputs
+      incomeInput.value = userSettings.income || "";
+      savingTargetInput.value = userSettings.savingTargetPercent || "";
+      accountNameInput.value = userProfile.displayName || "";
+
+      const labelEmail = currentUser.email || currentUser.uid;
+      const label = userProfile.displayName
+        ? `${userProfile.displayName} (${labelEmail})`
+        : labelEmail;
+      userEmailLabel.textContent = label;
+
+      accountMemberSince.textContent = formatDateHuman(userProfile.createdAt);
+
+      renderSummary();
+    }
+
+    btnSaveSettings.addEventListener("click", async () => {
+      settingsStatus.textContent = "";
+      if (!currentUser) {
+        settingsStatus.textContent = "Not logged in.";
+        return;
+      }
+      const income = Number(incomeInput.value) || 0;
+      const targetPct = Number(savingTargetInput.value) || 0;
+
+      userSettings.income = income;
+      userSettings.savingTargetPercent = targetPct;
+
+      try {
+        const userDocRef = doc(db, "users", currentUser.uid);
+        await setDoc(
+          userDocRef,
+          {
+            income,
+            savingTargetPercent: targetPct
+          },
+          { merge: true }
+        );
+        settingsStatus.textContent = "Settings saved.";
+        renderSummary();
+      } catch (err) {
+        settingsStatus.textContent = "Error saving: " + err.message;
+      }
+    });
+
+    btnUpdateAccount.addEventListener("click", async () => {
+      accountStatus.textContent = "";
+      if (!currentUser) {
+        accountStatus.textContent = "Not logged in.";
+        return;
+      }
+      const newName = accountNameInput.value.trim();
+      userProfile.displayName = newName;
+
+      try {
+        const userDocRef = doc(db, "users", currentUser.uid);
+        await setDoc(
+          userDocRef,
+          {
+            displayName: newName
+          },
+          { merge: true }
+        );
+        const labelEmail = currentUser.email || currentUser.uid;
+        const label = newName ? `${newName} (${labelEmail})` : labelEmail;
+        userEmailLabel.textContent = label;
+        accountStatus.textContent = "Account updated.";
+      } catch (err) {
+        accountStatus.textContent = "Error updating account: " + err.message;
+      }
+    });
+
+    /******************** TRANSACTIONS ********************/
+    function attachTransactionsListener() {
+      if (!currentUser) return;
+      const txColRef = collection(db, "users", currentUser.uid, "transactions");
+      const q = query(txColRef, orderBy("date", "desc"));
+
+      onSnapshot(q, (snapshot) => {
+        transactions = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }));
+        renderAll();
+      });
+    }
+
+    btnAddTransaction.addEventListener("click", async () => {
+      txStatus.textContent = "";
+      if (!currentUser) {
+        txStatus.textContent = "Not logged in.";
+        return;
+      }
+
+      const date = txDateInput.value || new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const amount = Number(txAmountInput.value);
+      const merchant = txMerchantInput.value.trim();
+      let category = txCategoryInput.value.trim();
+
+      if (isNaN(amount) || amount <= 0) {
+        txStatus.textContent = "Please enter a positive amount.";
+        return;
+      }
+      if (!merchant) {
+        txStatus.textContent = "Please enter a merchant/description.";
+        return;
+      }
+
+      if (!category) {
+        category = guessCategory(merchant);
+      }
+
+      try {
+        const txColRef = collection(db, "users", currentUser.uid, "transactions");
+        await addDoc(txColRef, {
+          date,
+          amount,
+          merchant,
+          category
+        });
+
+        txStatus.textContent = "Transaction added.";
+        txAmountInput.value = "";
+        txMerchantInput.value = "";
+        txCategoryInput.value = "";
+      } catch (err) {
+        txStatus.textContent = "Error adding transaction: " + err.message;
+      }
+    });
+
+    async function deleteTransaction(id) {
+      if (!currentUser || !id) return;
+      const txDocRef = doc(db, "users", currentUser.uid, "transactions", id);
+      await deleteDoc(txDocRef);
+    }
+
+    /******************** RENDER FUNCTIONS ********************/
+    function renderAll() {
+      renderSummary();
+      renderCategories();
+      renderTransactionsTable();
+    }
+
+    function renderSummary() {
+      const income = Number(userSettings.income) || 0;
+      const targetPct = Number(userSettings.savingTargetPercent) || 0;
+
+      const totalSpent = transactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      const expectedSaving = income * targetPct / 100;
+      const actualSaving = income - totalSpent;
+      const actualSavingPct = income > 0 ? (actualSaving / income) * 100 : 0;
+
+      sumIncome.textContent = formatCurrency(income);
+      sumSpent.textContent = formatCurrency(totalSpent);
+      sumExpectedSaving.textContent = formatCurrency(expectedSaving);
+      sumExpectedSavingPct.textContent = percent(targetPct);
+      sumActualSaving.textContent = formatCurrency(actualSaving);
+      sumActualSavingPct.textContent = percent(actualSavingPct);
+
+      if (income <= 0) {
+        savingStatus.textContent = "Set your income to see status.";
+        savingStatus.classList.remove("status-ok", "status-bad");
+      } else if (actualSaving >= expectedSaving) {
+        savingStatus.textContent = "On track ✅";
+        savingStatus.classList.add("status-ok");
+        savingStatus.classList.remove("status-bad");
+      } else {
+        savingStatus.textContent = "Below target ❌";
+        savingStatus.classList.add("status-bad");
+        savingStatus.classList.remove("status-ok");
+      }
+    }
+
+    function renderCategories() {
+      categoryTableBody.innerHTML = "";
+      const totals = {};
+      let totalSpent = 0;
+
+      for (const t of transactions) {
+        const amount = Number(t.amount) || 0;
+        const cat = t.category || "Uncategorised";
+        totalSpent += amount;
+        totals[cat] = (totals[cat] || 0) + amount;
+      }
+
+      const cats = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+
+      for (const [cat, amount] of cats) {
+        const tr = document.createElement("tr");
+        const pct = totalSpent > 0 ? (amount / totalSpent) * 100 : 0;
+
+        tr.innerHTML = `
+          <td>${cat}</td>
+          <td class="right">${formatCurrency(amount)}</td>
+          <td class="right">${percent(pct)}</td>
+        `;
+        categoryTableBody.appendChild(tr);
+      }
+
+      if (cats.length === 0) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="3" class="small-info">No transactions yet.</td>`;
+        categoryTableBody.appendChild(tr);
+      }
+    }
+
+    function renderTransactionsTable() {
+      txTableBody.innerHTML = "";
+
+      const rows = [...transactions];
+      const { key, direction } = txSortState;
+      rows.sort((a, b) => {
+        let av = a[key];
+        let bv = b[key];
+
+        if (key === "amount") {
+          av = Number(av) || 0;
+          bv = Number(bv) || 0;
+        } else if (key === "date") {
+          // compare YYYY-MM-DD strings
+        } else if (key === "category") {
+          av = (av || "").toLowerCase();
+          bv = (bv || "").toLowerCase();
+        }
+
+        if (av < bv) return direction === "asc" ? -1 : 1;
+        if (av > bv) return direction === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      for (const t of rows) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${t.date || ""}</td>
+          <td>${t.merchant || ""}</td>
+          <td class="right">${formatCurrency(t.amount)}</td>
+          <td><span class="tag">${t.category || "Uncategorised"}</span></td>
+          <td>
+            <button class="danger" data-id="${t.id}">Delete</button>
+          </td>
+        `;
+        txTableBody.appendChild(tr);
+      }
+
+      if (rows.length === 0) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="5" class="small-info">No transactions yet.</td>`;
+        txTableBody.appendChild(tr);
+      }
+
+      txTableBody.querySelectorAll("button.danger").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-id");
+          if (confirm("Delete this transaction?")) {
+            deleteTransaction(id);
+          }
+        });
+      });
+    }
+
+    // Sort handling for the transactions table
+    txTable.querySelectorAll("th.sortable").forEach((th) => {
+      th.addEventListener("click", () => {
+        const key = th.getAttribute("data-sort-key");
+        if (!key) return;
+
+        if (txSortState.key === key) {
+          txSortState.direction = txSortState.direction === "asc" ? "desc" : "asc";
+        } else {
+          txSortState.key = key;
+          txSortState.direction = "asc";
+        }
+        renderTransactionsTable();
+      });
+    });
+
+    // Default date = today
+    txDateInput.value = new Date().toISOString().slice(0, 10);
+  </script>
+</body>
+</html>
