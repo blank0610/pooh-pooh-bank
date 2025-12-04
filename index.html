@@ -52,7 +52,7 @@
         </div>
       </div>
 
-      <!-- PROFILE CARD (login-level account) -->
+      <!-- PROFILE CARD -->
       <div class="card">
         <h3>Your Profile</h3>
         <div class="row">
@@ -76,18 +76,19 @@
         </div>
       </div>
 
-      <!-- MONEY ACCOUNTS CARD (multi bank accounts) -->
+      <!-- MONEY ACCOUNTS MANAGEMENT -->
       <div class="card">
         <h3>Money Accounts</h3>
         <div class="row">
-          <!-- Select & edit existing account -->
+          <!-- Existing accounts (for editing details) -->
           <div class="col-half">
-            <label for="accountSelect">Choose account</label>
+            <label for="accountSelect">Choose account to edit</label>
             <select id="accountSelect">
               <option value="">No accounts yet</option>
             </select>
             <p class="small-info">
-              Select a money account to edit its details, income, saving target and transactions.
+              This section is for editing account details (name, type, note).  
+              Income and transactions use their own account dropdowns below.
             </p>
 
             <h4 style="margin-top:0.75rem;">Selected account details</h4>
@@ -117,10 +118,6 @@
 
             <button id="btnUpdateAccountDetails">Save account changes</button>
             <p id="accountEditStatus" class="small-info"></p>
-
-            <p class="small-info" id="currentAccountLabel" style="margin-top:0.5rem;">
-              Current account: <strong>None selected</strong>
-            </p>
           </div>
 
           <!-- Create new account -->
@@ -156,11 +153,16 @@
         </div>
       </div>
 
-      <!-- SETTINGS: INCOME + EXPECTED SAVINGS (per money account) -->
+      <!-- SETTINGS: INCOME + SAVING TARGET (PER ACCOUNT VIA DROPDOWN) -->
       <div class="card">
-        <h3>Income & Saving Target (for selected account)</h3>
+        <h3>Income & Saving Target</h3>
         <div class="row">
           <div class="col-half">
+            <label for="settingsAccountSelect">Account</label>
+            <select id="settingsAccountSelect">
+              <option value="">Select account</option>
+            </select>
+
             <label for="incomeInput">Monthly Income into this account (£)</label>
             <input
               type="number"
@@ -185,19 +187,24 @@
           </div>
           <div class="col-half">
             <p class="small-info">
-              These values apply only to the <strong>currently selected money account</strong>.<br />
+              These values apply only to the <strong>account selected in the dropdown</strong>.<br />
               • Expected saving = income × saving%<br />
-              • Actual saving = income − total spending (for this account)
+              • Actual saving = income − total spending (for that account)
             </p>
           </div>
         </div>
       </div>
 
-      <!-- ADD TRANSACTION (per money account) -->
+      <!-- ADD TRANSACTION (PER ACCOUNT VIA DROPDOWN) -->
       <div class="card">
-        <h3>Add Transaction (for selected account)</h3>
+        <h3>Add Transaction</h3>
         <div class="row">
           <div class="col-half">
+            <label for="txAccountSelect">Account</label>
+            <select id="txAccountSelect">
+              <option value="">Select account</option>
+            </select>
+
             <label for="txDateInput">Date</label>
             <input type="date" id="txDateInput" />
 
@@ -230,25 +237,25 @@
         <p id="txStatus" class="small-info"></p>
       </div>
 
-      <!-- SUMMARY (per money account) -->
+      <!-- SUMMARY (ALL ACCOUNTS) -->
       <div class="card">
-        <h3>Summary (current money account)</h3>
+        <h3>Summary (all accounts)</h3>
         <div class="summary-grid">
           <div class="summary-item">
-            <div class="summary-label">Monthly Income</div>
+            <div class="summary-label">Total Monthly Income (all accounts)</div>
             <div class="summary-value" id="sumIncome">£0.00</div>
           </div>
           <div class="summary-item">
-            <div class="summary-label">Total Spent</div>
+            <div class="summary-label">Total Spent (all accounts)</div>
             <div class="summary-value" id="sumSpent">£0.00</div>
           </div>
           <div class="summary-item">
-            <div class="summary-label">Expected Savings</div>
+            <div class="summary-label">Expected Savings (all accounts)</div>
             <div class="summary-value" id="sumExpectedSaving">£0.00</div>
             <div class="summary-badge" id="sumExpectedSavingPct">0%</div>
           </div>
           <div class="summary-item">
-            <div class="summary-label">Actual Savings</div>
+            <div class="summary-label">Actual Savings (all accounts)</div>
             <div class="summary-value" id="sumActualSaving">£0.00</div>
             <div class="summary-badge" id="sumActualSavingPct">0%</div>
           </div>
@@ -258,7 +265,25 @@
           </div>
         </div>
 
-        <h4 style="margin-top:1rem;">Spending by Category</h4>
+        <h4 style="margin-top:1rem;">Accounts overview</h4>
+        <table id="accountsSummaryTable">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Type</th>
+              <th class="right">Income (£)</th>
+              <th class="right">Spent (£)</th>
+              <th class="right">Expected Saving (£)</th>
+              <th class="right">Actual Saving (£)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="accountsSummaryTableBody">
+            <!-- Filled by JS -->
+          </tbody>
+        </table>
+
+        <h4 style="margin-top:1rem;">Spending by Category (all accounts)</h4>
         <table id="categoryTable">
           <thead>
             <tr>
@@ -273,16 +298,17 @@
         </table>
       </div>
 
-      <!-- TRANSACTIONS TABLE (per money account) -->
+      <!-- TRANSACTIONS TABLE (ALL ACCOUNTS) -->
       <div class="card">
-        <h3>Transactions (current money account)</h3>
+        <h3>Transactions (all accounts)</h3>
         <p class="small-info">
-          Click the headers to sort like Excel. Transactions belong to the selected money account.
+          Click the headers to sort like Excel. Each transaction shows which account it belongs to.
         </p>
         <table id="txTable">
           <thead>
             <tr>
               <th class="sortable" data-sort-key="date">Date <span>⇅</span></th>
+              <th class="sortable" data-sort-key="accountName">Account <span>⇅</span></th>
               <th>Merchant</th>
               <th class="sortable right" data-sort-key="amount">Amount (£) <span>⇅</span></th>
               <th class="sortable" data-sort-key="category">Category <span>⇅</span></th>
