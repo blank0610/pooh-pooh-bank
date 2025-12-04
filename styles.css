@@ -3,6 +3,21 @@
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #1b1b3a;
 }
+/*
+body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+
+  background: radial-gradient(circle at top,
+      #e5d6ff 0%,
+      #b9c7ff 25%,
+      #8fd8ff 55%,
+      #f5c2ff 100%);
+  min-height: 100vh;
+}*/
+
 
 body {
   margin: 0;
@@ -12,10 +27,12 @@ body {
 
   /* Soft pastel ocean gradient */
   background: radial-gradient(circle at top,
-      #e5d6ff 0%,
-      #b9c7ff 25%,
-      #8fd8ff 55%,
-      #f5c2ff 100%);
+      #fef4f4 0%,
+      #fdeff2 15%,
+      #e9dfe5 45%,
+      #e4d2d8 65%,
+      #f6bfbc 85%,
+      #f5b1aa 100%);
   min-height: 100vh;
 }
 
