@@ -414,3 +414,47 @@ tbody tr:hover {
     padding: 0.4rem 0.5rem;
   }
 }
+
+/* ===== MOBILE ONLY (Samsung A71 + iPhone) ===== */
+@media (max-width: 430px) {
+
+  /* --- Smaller summary cards --- */
+  .summary-grid {
+    gap: 0.4rem;
+  }
+
+  .summary-item {
+    padding: 0.4rem 0.5rem;   /* reduce box height */
+    border-radius: 12px;
+  }
+
+  .summary-label {
+    font-size: 0.7rem;
+  }
+
+  .summary-value {
+    font-size: 0.9rem;
+  }
+
+  .summary-badge {
+    font-size: 0.7rem;
+    padding: 0.08rem 0.4rem;
+  }
+
+  /* --- Smaller transaction/category table rows --- */
+  table th,
+  table td {
+    padding: 0.28rem 0.38rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  tbody tr:hover {
+    background-color: rgba(191, 219, 254, 0.45);
+  }
+
+  /* --- Smaller category tags --- */
+  .tag {
+    padding: 0.1rem 0.3rem;
+    font-size: 0.72rem;
+  }
+}
