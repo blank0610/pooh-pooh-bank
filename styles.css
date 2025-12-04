@@ -314,14 +314,15 @@ tbody tr:hover {
 
 /* ===== Responsive tweaks ===== */
 
-/* Tablets & normal phones */
+/* Tablets & medium phones (up to ~iPad mini in portrait) */
 @media (max-width: 768px) {
   body {
-    justify-content: flex-start;
+    justify-content: center;              /* keep content centered on A71 / iPhone */
   }
 
   .container {
-    max-width: 100%;
+    max-width: 520px;                     /* nice readable column on tall phones */
+    width: 100%;
     padding: 1rem 0.75rem;
   }
 
@@ -331,7 +332,7 @@ tbody tr:hover {
   }
 
   .row {
-    flex-direction: column;
+    flex-direction: column;               /* stack columns */
     gap: 0.75rem;
   }
 
@@ -339,8 +340,9 @@ tbody tr:hover {
     flex: 1 1 100%;
   }
 
+  /* Tables: allow sideways scroll if too many columns */
   table {
-    display: block;               /* allow horizontal scroll */
+    display: block;
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -349,7 +351,7 @@ tbody tr:hover {
   thead,
   tbody,
   tr {
-    width: max-content;           /* keep columns from squashing */
+    width: max-content;                   /* keep columns readable */
   }
 
   th,
@@ -362,18 +364,19 @@ tbody tr:hover {
   }
 }
 
-/* Small phones */
-@media (max-width: 480px) {
+/* Small phones (covers Samsung A71, iPhone 11/12/13/14, SE etc.) */
+@media (max-width: 430px) {
   .container {
+    max-width: 100%;
     padding: 0.75rem 0.5rem;
   }
 
   h1 {
-    font-size: 1.4rem;
+    font-size: 1.35rem;
   }
 
   h2 {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
   }
 
   h3 {
@@ -382,6 +385,7 @@ tbody tr:hover {
 
   .card {
     padding: 0.7rem 0.7rem;
+    border-radius: 14px;
   }
 
   input,
@@ -393,7 +397,7 @@ tbody tr:hover {
   button {
     font-size: 0.85rem;
     padding: 0.45rem 0.8rem;
-    width: 100%;       /* easier to tap */
+    width: 100%;                /* full-width buttons = easy to tap */
   }
 
   .btn-row {
@@ -403,5 +407,10 @@ tbody tr:hover {
 
   .small-info {
     font-size: 0.75rem;
+  }
+
+  th,
+  td {
+    padding: 0.4rem 0.5rem;
   }
 }
